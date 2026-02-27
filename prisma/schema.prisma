@@ -1,0 +1,522 @@
+// Vireo AI MVP 数据库模型
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 用户表
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  bio           String?
+  skills        String?   // JSON 字符串存储技能数组
+  interests     String?   // JSON 字符串存储兴趣数组
+  lookingFor    String?   // 寻找什么类型的合伙人
+  location      String?   // 所在城市
+  title         String?   // 职位/头衔
+  experience    String?   // 经验年限
+  achievements  String?   // 成就 JSON 数组
+  verified      Boolean   @default(false) // 是否认证用户
+  role          String    @default("user") // user, admin
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  ideas         Idea[]
+  projects      Project[]
+  conversations Conversation[]
+  messages      Message[]
+  adminLogs     AdminLog[]
+
+  // 合伙人匹配相关
+  sentLikes     UserLike[]    @relation("SentLikes")
+  receivedLikes UserLike[]    @relation("ReceivedLikes")
+  matchesAsUser1 UserMatch[]  @relation("MatchUser1")
+  matchesAsUser2 UserMatch[]  @relation("MatchUser2")
+
+  // 创意互动相关
+  ideaLikes     IdeaLike[]
+  ideaComments  IdeaComment[]
+  collaborations IdeaCollaborator[]
+
+  // 项目相关
+  projectMembers ProjectMember[]
+  assignedTasks  ProjectTask[] @relation("AssignedTasks")
+
+  // 通知相关
+  notifications     Notification[] @relation("UserNotifications")
+  sentNotifications Notification[] @relation("SentNotifications")
+
+  // 私信相关
+  sentDirectMessages DirectMessage[] @relation("SentDirectMessages")
+
+  // 创意群组相关
+  ideaGroupMembers   IdeaGroupMember[]
+  ideaGroupMessages  IdeaGroupMessage[]
+}
+
+// NextAuth 账户表
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// NextAuth 会话表
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// NextAuth 验证令牌表
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// 创意表
+model Idea {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  tags        String   // JSON 字符串存储标签数组
+  marketSize  String?  // 市场规模
+  score       Int?     // 潜力评分 1-100
+  canvas      String?  // 商业画布 JSON
+  analysis    String?  // 市场分析 JSON
+  isPublic    Boolean  @default(false)
+  likes       Int      @default(0)
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project       Project?
+  ideaLikes     IdeaLike[]
+  ideaComments  IdeaComment[]
+  collaborators IdeaCollaborator[]
+  group         IdeaGroup?
+}
+
+// 项目表
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  stage       String   @default("concept") // concept, validation, development, growth, archived
+  progress    Int      @default(0)         // 0-100
+  feasibility Int?     // 可行性评分
+  potential   Int?     // 市场潜力评分
+  teamScore   Int?     // 团队完整度
+  riskLevel   String?  // low, medium, high
+  insights    String?  // AI 洞察 JSON
+  // 工具箱生成数据
+  bpData        String?  @db.Text // 商业计划书 JSON
+  pitchData     String?  @db.Text // 电梯演讲稿 JSON
+  mvpData       String?  @db.Text // MVP 规划 JSON
+  personasData  String?  @db.Text // 用户画像 JSON
+  financialData String?  @db.Text // 财务预测 JSON
+  userId      String
+  ideaId      String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idea          Idea?             @relation(fields: [ideaId], references: [id])
+  tasks         ProjectTask[]
+  milestones    ProjectMilestone[]
+  notes         ProjectNote[]
+  members       ProjectMember[]
+  resources     ProjectResource[]
+  conversations Conversation[]    // 关联的智囊团讨论
+}
+
+// 对话表（智囊团）
+model Conversation {
+  id        String    @id @default(cuid())
+  title     String?
+  expertId  String    // strategist, tech, investor, marketing, legal (多专家用逗号分隔)
+  userId    String
+  projectId String?   // 关联的项目ID
+  mode      String?   // 讨论模式: single, sequential, moderated, free
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project  Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages Message[]
+}
+
+// 消息表
+model Message {
+  id             String   @id @default(cuid())
+  role           String   // user, assistant, system
+  content        String
+  conversationId String
+  userId         String?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+}
+
+// AI 提供商配置表
+model AIProvider {
+  id          String   @id @default(cuid())
+  name        String   // 显示名称：DeepSeek, Claude, ChatGPT, GLM 等
+  provider    String   @unique // 提供商标识：deepseek, anthropic, openai, zhipu
+  apiKey      String?  // API Key（加密存储）
+  baseUrl     String?  // 自定义 API 地址
+  models      String   // 可用模型列表 JSON
+  defaultModel String? // 默认模型
+  isEnabled   Boolean  @default(false)
+  isDefault   Boolean  @default(false) // 是否为默认提供商
+  priority    Int      @default(0) // 优先级，用于排序
+  config      String?  // 其他配置 JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 系统设置表
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  type      String   @default("string") // string, number, boolean, json
+  group     String   @default("general") // general, ai, email, etc.
+  label     String?  // 显示标签
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 操作日志表
+model AdminLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // create, update, delete
+  target    String   // user, idea, provider, setting
+  targetId  String?
+  details   String?  // JSON 详情
+  ip        String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// AI 调用统计表
+model AIUsageLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  providerId String
+  model      String
+  tokens     Int
+  cost       Float?
+  createdAt  DateTime @default(now())
+}
+
+// ==================== 项目实验室相关 ====================
+
+// 项目任务表
+model ProjectTask {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  completed   Boolean   @default(false)
+  priority    String    @default("medium") // low, medium, high, urgent
+  dueDate     DateTime?
+  category    String?   // 任务分类：development, marketing, legal, finance, etc.
+  order       Int       @default(0) // 排序顺序
+  projectId   String
+  assigneeId  String?   // 分配给谁
+  milestoneId String?   // 关联里程碑
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee  User?             @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  milestone ProjectMilestone? @relation(fields: [milestoneId], references: [id])
+}
+
+// 项目里程碑表
+model ProjectMilestone {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  order       Int       @default(0)
+  projectId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   ProjectTask[]
+}
+
+// 项目笔记表
+model ProjectNote {
+  id        String   @id @default(cuid())
+  title     String?
+  content   String
+  category  String   @default("general") // general, meeting, decision, idea, research
+  pinned    Boolean  @default(false)
+  projectId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// 项目成员表
+model ProjectMember {
+  id        String   @id @default(cuid())
+  role      String   @default("member") // owner, admin, member, viewer
+  projectId String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+// 项目资源表
+model ProjectResource {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // link, file, document, tool
+  url       String?
+  notes     String?
+  projectId String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// ==================== 创意星云相关 ====================
+
+// 创意点赞表
+model IdeaLike {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  idea Idea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ideaId, userId])
+}
+
+// 创意评论表
+model IdeaComment {
+  id        String   @id @default(cuid())
+  content   String
+  ideaId    String
+  userId    String
+  parentId  String?  // 回复的评论ID
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  idea   Idea          @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent IdeaComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies IdeaComment[] @relation("CommentReplies")
+}
+
+// 创意协作者表
+model IdeaCollaborator {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  status    String   @default("pending") // pending, accepted, rejected
+  message   String?  // 申请留言
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  idea Idea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ideaId, userId])
+}
+
+// ==================== 合伙人匹配相关 ====================
+
+// 用户连接请求表
+model UserLike {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  ignored    Boolean  @default(false) // 是否被忽略
+  createdAt  DateTime @default(now())
+
+  fromUser User @relation("SentLikes", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("ReceivedLikes", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+}
+
+// 用户匹配表（双向喜欢后创建）
+model UserMatch {
+  id        String   @id @default(cuid())
+  user1Id   String
+  user2Id   String
+  createdAt DateTime @default(now())
+
+  user1 User @relation("MatchUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2 User @relation("MatchUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+  messages DirectMessage[]
+
+  @@unique([user1Id, user2Id])
+}
+
+// ==================== 私信系统 ====================
+
+// 私信表
+model DirectMessage {
+  id        String   @id @default(cuid())
+  content   String
+  matchId   String
+  senderId  String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  match  UserMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender User      @relation("SentDirectMessages", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+// ==================== 通知系统 ====================
+
+// 通知表
+model Notification {
+  id        String   @id @default(cuid())
+  type      String   // match, like, comment, collaboration, system
+  title     String
+  content   String?
+  link      String?  // 点击跳转链接
+  read      Boolean  @default(false)
+  userId    String
+  fromUserId String? // 触发通知的用户
+  createdAt DateTime @default(now())
+
+  user     User  @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  fromUser User? @relation("SentNotifications", fields: [fromUserId], references: [id])
+}
+
+// ==================== 数据缓存 ====================
+
+// 趋势数据缓存表
+model TrendCache {
+  id        String   @id @default(cuid())
+  keyword   String   // 关键词（多个用逗号分隔）
+  source    String   // 数据源（google_trends/baidu_index）
+  data      String   @db.Text // 趋势数据（JSON）
+  updatedAt DateTime @updatedAt
+
+  @@unique([keyword, source])
+}
+
+// ==================== 创意协作群组 ====================
+
+// 创意群组表（每个公开创意自动创建一个群组）
+model IdeaGroup {
+  id        String   @id @default(cuid())
+  ideaId    String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  idea     Idea              @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  members  IdeaGroupMember[]
+  messages IdeaGroupMessage[]
+}
+
+// 群组成员表
+model IdeaGroupMember {
+  id         String   @id @default(cuid())
+  groupId    String
+  userId     String
+  role       String   @default("member") // owner, member
+  joinedAt   DateTime @default(now())
+  lastReadAt DateTime @default(now()) // 最后阅读时间
+
+  group IdeaGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+// 群组消息表
+model IdeaGroupMessage {
+  id        String   @id @default(cuid())
+  groupId   String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  group  IdeaGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+// ==================== 公告系统 ====================
+
+// 公告表
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  content     String    // 公告内容（支持富文本）
+  image       String?   // 图片URL
+  type        String    @default("popup") // popup: 弹窗, banner: 横幅
+  target      String    @default("all") // all: 所有用户, loggedIn: 已登录用户, guest: 未登录用户
+  triggerType String    @default("login") // login: 登录时弹窗, immediate: 立即弹窗给在线用户, manual: 手动触发
+  priority    Int       @default(0) // 优先级，数字越大越优先
+  isActive    Boolean   @default(true)
+  startAt     DateTime? // 开始时间
+  endAt       DateTime? // 结束时间
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // 记录用户已读状态
+  readRecords AnnouncementRead[]
+}
+
+// 公告已读记录表
+model AnnouncementRead {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+}

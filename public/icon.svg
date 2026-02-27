@@ -1,0 +1,32 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6"/>
+      <stop offset="100%" style="stop-color:#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="birdGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#f0f0f0"/>
+    </linearGradient>
+  </defs>
+  <!-- 圆角背景 -->
+  <rect width="180" height="180" rx="40" fill="url(#bgGradient)"/>
+  <!-- Vireo 鸟形 - 简约现代风格 -->
+  <g transform="translate(30, 35)">
+    <!-- 鸟身体 -->
+    <path d="M60 95 C25 95, 15 70, 25 50 C35 30, 55 25, 75 35 C95 45, 100 65, 95 80 C90 95, 75 95, 60 95 Z" fill="white"/>
+    <!-- 翅膀 -->
+    <path d="M50 55 C45 45, 55 35, 70 40 C85 45, 90 55, 85 65 C80 75, 65 75, 55 70 C45 65, 50 55, 50 55 Z" fill="rgba(139, 92, 246, 0.3)"/>
+    <!-- 头部 -->
+    <ellipse cx="85" cy="45" rx="22" ry="20" fill="white"/>
+    <!-- 眼睛 -->
+    <circle cx="92" cy="42" r="5" fill="#1a1625"/>
+    <circle cx="93" cy="41" r="1.5" fill="white"/>
+    <!-- 喙 -->
+    <path d="M105 45 L120 42 L105 50 Z" fill="#F59E0B"/>
+    <!-- 尾巴 -->
+    <path d="M25 70 C10 65, 5 80, 15 90 C25 100, 35 95, 30 85 C25 75, 25 70, 25 70 Z" fill="white"/>
+    <!-- 腿 -->
+    <path d="M55 95 L50 110 M60 95 L65 110" stroke="#F59E0B" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>
